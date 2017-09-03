@@ -1,0 +1,113 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >
+  Basic Cognito Stack
+
+Parameters:
+  IdentityPoolName:
+    Type: String
+    Default: 'IxorTalkIdentityPool'
+    Description: Name of the identity pool
+  UserPoolName:
+    Type: String
+    Default: 'IxorTalkUserPoolName'
+    Description: Name of the user pool
+  DeveloperProviderName:
+    Type: String
+    Default: 'IxorTalkDeveloperProvider'
+    Description: Name of the developer provider
+  UnauthRoleName:
+    Type: String
+    Default: 'IxorTalk-unauthenticated-role'
+    Description: Unauth role name
+  AuthRoleName:
+    Type: String
+    Default: 'IxorTalk-authenticated-role'
+    Description: Auth role name
+  Region:
+    Type: String
+    Default: 'eu-central-1'
+    Description: The region
+
+Resources:
+  IndentityPool:
+    Type: "AWS::Cognito::IdentityPool"
+    Properties:
+      IdentityPoolName: !Ref IdentityPoolName
+      AllowUnauthenticatedIdentities: true
+      DeveloperProviderName: !Ref DeveloperProviderName
+      CognitoIdentityProviders:
+      - ClientId: !Ref UserPoolClient
+        ProviderName: !Join ['', ['cognito-idp.', !Ref Region, '.amazonaws.com/', !Ref UserPool]]
+
+  UserPool:
+    Type: "AWS::Cognito::UserPool"
+    Properties:
+      AutoVerifiedAttributes:
+        - email
+      MfaConfiguration: "OFF"
+      UserPoolName: !Ref UserPoolName
+
+  UnauthRole:
+    Type: "AWS::IAM::Role"
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Effect: "Allow"
+            Principal:
+                Federated: "cognito-identity.amazonaws.com"
+            Action: "sts:AssumeRoleWithWebIdentity"
+            Condition:
+              StringEquals:
+                cognito-identity.amazonaws.com:aud: !Ref IndentityPool
+              ForAnyValue:StringLike:
+                cognito-identity.amazonaws.com:amr: "authenticated"
+
+      RoleName: !Ref UnauthRoleName
+
+  UnauthRolePolicy:
+    Type: "AWS::IAM::Policy"
+    Properties:
+      PolicyDocument:
+        Statement:
+          - Effect: "Allow"
+            Action: ['mobileanalytics:PutEvents', 'cognito-sync:*']
+            Resource: '*'
+      PolicyName: CognitoPolicy
+      Roles:
+        - !Ref UnauthRole
+
+  AuthRole:
+    Type: "AWS::IAM::Role"
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Effect: "Allow"
+            Principal:
+                Federated: "cognito-identity.amazonaws.com"
+            Action: "sts:AssumeRoleWithWebIdentity"
+            Condition:
+              StringEquals:
+                cognito-identity.amazonaws.com:aud: !Ref IndentityPool
+              ForAnyValue:StringLike:
+                cognito-identity.amazonaws.com:amr: "unauthenticated"
+
+      RoleName: !Ref AuthRoleName
+
+  AuthRolePolicy:
+    Type: "AWS::IAM::Policy"
+    Properties:
+      PolicyDocument:
+        Statement:
+          - Effect: "Allow"
+            Action: ["mobileanalytics:PutEvents","cognito-sync:*","cognito-identity:*"]
+            Resource: '*'
+      PolicyName: CognitoPolicy
+      Roles:
+        - !Ref UnauthRole
+
+  UserPoolClient:
+    Type: "AWS::Cognito::UserPoolClient"
+    Properties:
+        ClientName: webapp,
+        GenerateSecret: False
+        UserPoolId: !Ref UserPool
