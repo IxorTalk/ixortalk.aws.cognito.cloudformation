@@ -9,9 +9,15 @@ A very basic Cognito Cloudformation stack that will setup
 
 # Cloudformation commands
 
-## Creating stacks
+I'm going to export the stack name as the variable `STACK`
 
-You can execute the stack from the command line like this: 
+```
+export STACK=cognito-stack
+```
+
+You can execute stack commands using the AWS CLI from the command line like this (make sure you're in the folder where the stack file resides.): 
+
+## Creating stacks
 
 ```
 aws cloudformation create-stack --capabilities CAPABILITY_NAMED_IAM --stack-name ${STACK} --template-body file://${STACK}.yml

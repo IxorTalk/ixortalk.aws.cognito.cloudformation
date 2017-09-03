@@ -1,6 +1,6 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Description: >
-  Basic Cognito Stack
+  AWS Cognito Stack with User Pool, Identity Pool, IAM roles (authenticated / unauthenticated), Trust Policies and an app client.
 
 Parameters:
   IdentityPoolName:
@@ -23,13 +23,17 @@ Parameters:
     Type: String
     Default: 'IxorTalk-authenticated-role'
     Description: Auth role name
+  AppClientName:
+    Type: String
+    Default: 'client-app'
+    Description: The app Client Name
   Region:
     Type: String
     Default: 'eu-central-1'
     Description: The region
 
 Resources:
-  IndentityPool:
+  IdentityPool:
     Type: "AWS::Cognito::IdentityPool"
     Properties:
       IdentityPoolName: !Ref IdentityPoolName
@@ -58,9 +62,9 @@ Resources:
             Action: "sts:AssumeRoleWithWebIdentity"
             Condition:
               StringEquals:
-                cognito-identity.amazonaws.com:aud: !Ref IndentityPool
+                cognito-identity.amazonaws.com:aud: !Ref IdentityPool
               ForAnyValue:StringLike:
-                cognito-identity.amazonaws.com:amr: "authenticated"
+                cognito-identity.amazonaws.com:amr: "unauthenticated"
 
       RoleName: !Ref UnauthRoleName
 
@@ -87,9 +91,9 @@ Resources:
             Action: "sts:AssumeRoleWithWebIdentity"
             Condition:
               StringEquals:
-                cognito-identity.amazonaws.com:aud: !Ref IndentityPool
+                cognito-identity.amazonaws.com:aud: !Ref IdentityPool
               ForAnyValue:StringLike:
-                cognito-identity.amazonaws.com:amr: "unauthenticated"
+                cognito-identity.amazonaws.com:amr: "authenticated"
 
       RoleName: !Ref AuthRoleName
 
@@ -103,11 +107,37 @@ Resources:
             Resource: '*'
       PolicyName: CognitoPolicy
       Roles:
-        - !Ref UnauthRole
+        - !Ref AuthRole
 
   UserPoolClient:
     Type: "AWS::Cognito::UserPoolClient"
     Properties:
-        ClientName: webapp,
+        ClientName: !Ref AppClientName
         GenerateSecret: False
         UserPoolId: !Ref UserPool
+
+  IdentityPoolRoleMapping:
+    Type: "AWS::Cognito::IdentityPoolRoleAttachment"
+    Properties:
+      IdentityPoolId: !Ref IdentityPool
+      Roles:
+        authenticated: !GetAtt AuthRole.Arn
+        unauthenticated: !GetAtt UnauthRole.Arn
+
+Outputs:
+  UserPoolId:
+    Value: !Ref UserPool
+    Export:
+      Name: "UserPoolId"
+  AppClientName:
+    Value: !Ref AppClientName
+    Export:
+      Name: "AppClientName"
+  UserPoolClientId:
+    Value: !Ref UserPoolClient
+    Export:
+      Name: "UserPoolClientId"
+  IdentityPoolId:
+    Value: !Ref IdentityPool
+    Export:
+      Name: "IdentityPoolId"
